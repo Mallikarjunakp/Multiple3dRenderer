@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>3d models viewing multiple</title>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Mallikarjuna">
+  
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+  
+  <style>
+	.row {
+		border: outset;
+		padding: 10px;
+		box-shadow: -1px 0px 5px grey;
+		margin: 10px;
+	}
+	body {
+		background: url("css/bg.png") grey;
+	}
+  </style>
+  
+</head>
+<body style="margin: 0;">
+
+  <script src="js/three.min.js"></script>
+  <script src="js/OrbitControls.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/readfile.js"></script>
+  
+  <center>
+    <div id="player" style="border:1px solid blue;width:60%;align:center;">
+		<input type="file" name="ifile" id="ifile" class="form-control" multiple />
+	  <button onclick="checkFiles()" class="btn btn-info">Add One More</button>
+	</div>
+  </center>
+	<div class="container"  id="mainwrap">
+		<div class="jumbotron" style="background: #428bca; color:white; border-radius:0px; margin:5px;">
+			<h1>Upload your 3D Model and view it</h1>
+		</div>
+	</div>
+  
+  <script>
+	var count = 0;
+	var i = 0;
+	i = parseInt(i);
+	count = parseInt(count);
+	var adding = 0;
+	adding = parseInt(adding);
+	var scene = [];
+	var camera = [];
+	var renderer = [];
+	var mesh = [];
+	var controls = [];
+	var ambientLight = [];
+	var directionalLight = [];
+	var pointLight = [];
+	var mainwrap = document.getElementById("mainwrap");
+	var mesh = [];
+	mesh[count] = null;
+	var material = [];
+	var xsize, ysize, zsize, m_filename;
+	var numOfFiles = parseInt("0");
+	var nextFile = parseInt("0");
+	
+	function checkFiles() {
+		var x = document.getElementById("ifile");
+		if ('files' in x) {
+			if (x.files.length == 0) {
+				alert("Select one or more files.");
+			} else {
+				numOfFiles = x.files.length;
+				nextFile = parseInt("0");
+				addNew();
+			}
+		} 
+	}
+
+	function addNew(){
+		
+		count = adding;
+		material[count] = new THREE.MeshLambertMaterial({color:0x909090, overdraw: 1, wireframe: false, shading:THREE.FlatShading, vertexColors: THREE.FaceColors});
+		scene[count] = new THREE.Scene();
+		
+		// Create a renderer and add it to the DOM.
+		renderer[count] = new THREE.WebGLRenderer({antialias:true});
+		renderer[count].setSize( 200, 200 );
+		renderer[count].setClearColor( 0xffffff );
+
+		var row = document.createElement('div');
+		mainwrap.appendChild(row);
+		row.id = "row"+count;
+		row.className = "row";
+		//row.style.border = "2px solid blue";
+
+		var viewer = document.createElement('div');
+		row.appendChild(viewer);
+		viewer.id = "viewer"+count;
+		viewer.className = "col-md-4";
+		
+		var infoContainer = document.createElement('div');
+		row.appendChild(infoContainer);
+		infoContainer.id = "infoContainer"+count;
+		infoContainer.className = "col-md-4";
+		
+		var progBar = document.createElement('progress');
+		row.appendChild(progBar);
+		progBar.id = "pBar"+count;
+
+		viewer.appendChild(renderer[count].domElement);
+
+
+		// Create a camera, zoom it out from the model a bit, and add it to the scene.
+		camera[count] = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
+		//camera2.position.set(0,6,0);
+		camera[count].position.set(0,0,50);
+		scene[count].add(camera[count]);
+
+		  // Set the background color of the scene.
+		renderer[count].setClearColorHex(0x333F47, 1);
+
+		// Create a light, set its position, and add it to the scene.
+
+		ambientLight[count] = new THREE.AmbientLight(0x202020);
+		camera[count].add(ambientLight[count]);
+		directionalLight[count] = new THREE.DirectionalLight(0xffffff, 0.75);
+		directionalLight[count].position.x = 1;
+		directionalLight[count].position.y = 1;
+		directionalLight[count].position.z = 2;
+		directionalLight[count].position.normalize();
+		camera[count].add(directionalLight[count]);
+		pointLight[count] = new THREE.PointLight(0xffffff, 0.3);
+		pointLight[count].position.x = 0;
+		pointLight[count].position.y = -25;
+		pointLight[count].position.z = 10;
+		camera[count].add(pointLight[count]);
+				
+		// Load in the mesh and add it to the scene.
+		read_file(document.getElementById("ifile").files[nextFile++]);
+		
+		
+		// Add OrbitControls so that we can pan around with the mouse.
+		controls[count] = new THREE.OrbitControls(camera[count], renderer[count].domElement);
+		
+		var funName = "animate";
+		var fn = window[funName];
+		fn();
+
+		adding++;
+	}
+
+	// Renders the scene and updates the render as needed.
+	function animate() {
+		// Read more about requestAnimationFrame
+		requestAnimationFrame(animate);
+
+		// Render the scene.
+		for(i=0;i<=count;i++) {
+			renderer[i].clear();
+			renderer[i].render(scene[i], camera[i], false);
+			controls[i].update();
+		}
+	}
+		
+	function loadMesh(filename,s) {
+		var vf_data;
+		try
+		{
+			vf_data=parse_3d_file(filename, s);
+		}
+		catch(err)
+		{
+			vf_data="Error parsing the file";
+		}
+		
+		if (typeof vf_data === 'string')
+		{
+			alert(vf_data);
+			return;
+		}
+		if (mesh[count]!=null) {scene[count].remove(mesh[count]);mesh[count]=null};
+
+		var geo=new THREE.Geometry;
+		geo.vertices=vf_data.vertices;
+		geo.faces=vf_data.faces;                
+		geo.computeBoundingBox();
+
+		geo.computeCentroids();
+
+		geo.computeFaceNormals(); 
+		geo.computeVertexNormals(); 
+		THREE.GeometryUtils.center(geo);
+		mesh[count] = new THREE.Mesh(geo, material[count]); 
+		scene[count].add(mesh[count]);
+		
+		
+		xsize=geo.boundingBox.max.x-geo.boundingBox.min.x;
+		ysize=geo.boundingBox.max.y-geo.boundingBox.min.y;
+		zsize=geo.boundingBox.max.z-geo.boundingBox.min.z;
+		vol=compute_vol(geo);
+
+		var str = '<h3> Model Info </h3> <p><b> Name : </b>'; 
+		str += filename.length > 30 ? filename.substr(0,30) : filename;
+		str += '</p>';
+		str += '<p><b> Size : </b>' + numberWithCommas(xsize.toFixed(0))+' x '+numberWithCommas(ysize.toFixed(0))+' x '+numberWithCommas(zsize.toFixed(0));
+		
+		document.getElementById('infoContainer'+count).innerHTML = str;
+
+		numOfFiles--;
+		if(numOfFiles>0)
+			addNew();
+	}
+	
+	function compute_vol(geo)
+	{
+		var x1,x2,x3,y1,y2,y3,z1,z2,z3,i;
+		var len=geo.faces.length;
+		var totalVolume=0;
+		
+		for (i=0;i<len;i++)
+		{
+			x1=geo.vertices[geo.faces[i].a].x;
+			y1=geo.vertices[geo.faces[i].a].y;
+			z1=geo.vertices[geo.faces[i].a].z;
+			x2=geo.vertices[geo.faces[i].b].x;
+			y2=geo.vertices[geo.faces[i].b].y;
+			z2=geo.vertices[geo.faces[i].b].z;
+			x3=geo.vertices[geo.faces[i].c].x;
+			y3=geo.vertices[geo.faces[i].c].y;
+			z3=geo.vertices[geo.faces[i].c].z;
+
+			
+			totalVolume += 
+				(-x3 * y2 * z1 + 
+				x2 * y3 * z1 +
+				x3 * y1 * z2 - 
+				x1 * y3 * z2 - 
+				x2 * y1 * z3 + 
+				x1 * y2 * z3) / 6;
+		}
+		return Math.abs(totalVolume);
+	}
+            
+	function numberWithCommas(x)
+	{
+		var parts = x.toString().split(".");
+		parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		return parts.join(".");
+	}
+  </script>
+  
+  <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+
+    <!-- Plugin JavaScript -->
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery-easing/1.3/jquery.easing.min.js"></script>
+    
+</body>
+</html>
