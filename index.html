@@ -18,7 +18,13 @@
 		margin: 10px;
 	}
 	body {
-		background: url("css/bg.png") grey;
+		background: url("css/bg.PNG") grey;
+	}
+	#player {
+		border: 1px solid blue;
+		width: 60%;
+		background: white;
+		min-height: 100px;
 	}
   </style>
   
@@ -31,13 +37,15 @@
   <script src="js/readfile.js"></script>
   
   <center>
-    <div id="player" style="border:1px solid blue;width:60%;align:center;">
-		<input type="file" name="ifile" id="ifile" class="form-control" multiple />
-	  <button onclick="checkFiles()" class="btn btn-info">Add One More</button>
-	</div>
+    <div id="player">
+        <p>&nbsp;</p>
+        <input type="file" name="ifile" id="ifile" class="form-control" style="border:none;height:100%;" multiple />
+        <p style="color: #428bca;"> <i>OR</i>&nbsp; Drag Your file/s here</p>
+	<button onclick="checkFiles()" class="btn btn-info">Add One More</button>
+    </div>
   </center>
 	<div class="container"  id="mainwrap">
-		<div class="jumbotron" style="background: #428bca; color:white; border-radius:0px; margin:5px;">
+		<div class="jumbotron" style="background: #428bca; color:white; border:none; border-radius:0px; margin:5px;box-shadow:0px 0px 0px 5px #eee inset">
 			<h1>Upload your 3D Model and view it</h1>
 		</div>
 	</div>
@@ -49,10 +57,10 @@
 	count = parseInt(count);
 	var adding = 0;
 	adding = parseInt(adding);
+	var max_file_size = 40000000;
 	var scene = [];
 	var camera = [];
 	var renderer = [];
-	var mesh = [];
 	var controls = [];
 	var ambientLight = [];
 	var directionalLight = [];
@@ -64,13 +72,37 @@
 	var xsize, ysize, zsize, m_filename;
 	var numOfFiles = parseInt("0");
 	var nextFile = parseInt("0");
+	var fList = [];
+	var dragged = false;
+	var draggedFile;
+	var uploadFile;
 	
 	function checkFiles() {
-		var x = document.getElementById("ifile");
+		var x;
+		if(dragged) {
+			x = draggedFile;
+			dragged = false;
+		}
+		else {
+			x = document.getElementById("ifile");
+		}
+		
 		if ('files' in x) {
 			if (x.files.length == 0) {
 				alert("Select one or more files.");
 			} else {
+				for(i=0;i<x.files.length;i++) {
+					if (!supported_file_type(x.files[i].name)) {
+						alert('one or more File\'s format is not supported! please make sure you select valid files');
+						x.value = '';
+						return;
+					}
+					if (x.files[i].size>max_file_size) {
+						alert('File is too big - maximum allowed size is 20mb');
+						return;
+					}
+				}
+				uploadFile = x;
 				numOfFiles = x.files.length;
 				nextFile = parseInt("0");
 				addNew();
@@ -78,7 +110,21 @@
 		} 
 	}
 
-	function addNew(){
+	function supported_file_type (filename) {
+                switch (filename.split('.').pop().toLowerCase()) {
+                    case 'stl':
+                    case 'obj':
+                    case 'vf':
+                        return true;
+                        break;
+                        
+                    default:
+                        return false;
+                }
+                
+	}
+
+	function addNew() {
 		
 		count = adding;
 		material[count] = new THREE.MeshLambertMaterial({color:0x909090, overdraw: 1, wireframe: false, shading:THREE.FlatShading, vertexColors: THREE.FaceColors});
@@ -108,7 +154,7 @@
 		var progBar = document.createElement('progress');
 		row.appendChild(progBar);
 		progBar.id = "pBar"+count;
-
+		
 		viewer.appendChild(renderer[count].domElement);
 
 
@@ -138,17 +184,32 @@
 		camera[count].add(pointLight[count]);
 				
 		// Load in the mesh and add it to the scene.
-		read_file(document.getElementById("ifile").files[nextFile++]);
+		read_file(uploadFile.files[nextFile++]);
 		
 		
 		// Add OrbitControls so that we can pan around with the mouse.
 		controls[count] = new THREE.OrbitControls(camera[count], renderer[count].domElement);
 		
+		fList.push(count);
 		var funName = "animate";
 		var fn = window[funName];
 		fn();
 
 		adding++;
+	}
+
+	function removeFile(which) {
+		if(fList[which]!=null) fList.splice(fList.indexOf(which), 1);
+		//if(scene[which]!=null) scene.splice(scene.indexOf(which), 1);
+		//if(camera[which]!=null) camera.splice(camera.indexOf(which), 1);
+		//if(renderer[which]!=null) renderer.splice(renderer.indexOf(which), 1);
+		//if(controls[which]!=null) controls.splice(controls.indexOf(which), 1);
+		if(ambientLight[which]!=null) ambientLight.splice(ambientLight.indexOf(which), 1);
+		if(directionalLight[which]!=null) directionalLight.splice(directionalLight.indexOf(which), 1);
+		if(pointLight[which]!=null) pointLight.splice(pointLight.indexOf(which), 1);
+		if(mesh[which]!=null) mesh.splice(mesh.indexOf(which), 1);
+		if(material[which]!=null) material.splice(material.indexOf(which), 1);
+		mainwrap.removeChild(document.getElementById("row"+which));
 	}
 
 	// Renders the scene and updates the render as needed.
@@ -157,10 +218,10 @@
 		requestAnimationFrame(animate);
 
 		// Render the scene.
-		for(i=0;i<=count;i++) {
-			renderer[i].clear();
-			renderer[i].render(scene[i], camera[i], false);
-			controls[i].update();
+		for(i=0;i<fList.length;i++) {
+			renderer[fList[i]].clear();
+			renderer[fList[i]].render(scene[fList[i]], camera[fList[i]], false);
+			controls[fList[i]].update();
 		}
 	}
 		
@@ -201,20 +262,42 @@
 		zsize=geo.boundingBox.max.z-geo.boundingBox.min.z;
 		vol=compute_vol(geo);
 
+		camera[count].position.set(xsize,ysize,zsize);		
+
 		var str = '<h3> Model Info </h3> <p><b> Name : </b>'; 
 		str += filename.length > 30 ? filename.substr(0,30) : filename;
 		str += '</p>';
 		str += '<p><b> Size : </b>' + numberWithCommas(xsize.toFixed(0))+' x '+numberWithCommas(ysize.toFixed(0))+' x '+numberWithCommas(zsize.toFixed(0));
-		
+		str += '</p> <p><b> Volume(mm<sup>3</sup>) : </b>' + numberWithCommas(vol.toFixed(0)) + '</p>';
+		str += '<button onclick="removeFile(' + count + ')" class="btn btn-warning">Remove</button>';
 		document.getElementById('infoContainer'+count).innerHTML = str;
 
 		numOfFiles--;
 		if(numOfFiles>0)
 			addNew();
+		else
+			document.getElementById('ifile').value = '';
 	}
-	
-	function compute_vol(geo)
-	{
+
+	function handleDragOver(e) {
+		e.stopPropagation();
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'copy';         
+        }
+            
+	function handleFileDrop(e) {
+		e.stopPropagation();
+		e.preventDefault();
+		//first, check if its a file
+		if (e.dataTransfer.files.length>0) {
+			dragged = true;
+			draggedFile = e.dataTransfer;
+			checkFiles();
+		}
+           
+	}
+
+	function compute_vol(geo) {
 		var x1,x2,x3,y1,y2,y3,z1,z2,z3,i;
 		var len=geo.faces.length;
 		var totalVolume=0;
@@ -249,6 +332,9 @@
 		parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 		return parts.join(".");
 	}
+	
+	document.getElementById('player').addEventListener('dragover', handleDragOver, false);
+	document.getElementById('player').addEventListener('drop', handleFileDrop, false);
   </script>
   
   <!-- jQuery -->

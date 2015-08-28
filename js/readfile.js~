@@ -33,7 +33,7 @@ function read_file(f) {
 				error_str="Error reading file";
 		}
 		alert(error_str);
-		//return after_error();
+		return after_error();
 	}       
 					
 	reader.onload = function(e)
